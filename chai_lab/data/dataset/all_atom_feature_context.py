@@ -37,6 +37,9 @@ class AllAtomFeatureContext:
     template_context: TemplateContext
     embedding_context: EmbeddingContext | None
     restraint_context: RestraintContext
+    # restraint-guided inference: rgi_utils restraints_config dict (sidecar
+    # YAML/JSON). Metadata, not padded/batched (lives alongside chains).
+    restraints_config: dict | None = None
 
     def __str__(self) -> str:
         chains_info = [str(chain) for chain in self.chains]
@@ -73,6 +76,7 @@ class AllAtomFeatureContext:
                 else None
             ),
             restraint_context=self.restraint_context.pad(max_tokens=n_tokens),
+            restraints_config=self.restraints_config,
         )
 
     def to_dict(self) -> dict[str, Any]:

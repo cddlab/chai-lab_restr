@@ -348,6 +348,7 @@ def make_all_atom_feature_context(
     use_templates_server: bool = False,
     templates_path: Path | None = None,
     esm_device: torch.device = torch.device("cpu"),
+    restraints_config_path: Path | None = None,
 ):
     assert not (
         use_msa_server and msa_directory
@@ -483,6 +484,13 @@ def make_all_atom_feature_context(
     merged_context.drop_glycan_leaving_atoms_inplace()
 
     # Build final feature context
+    # RGI: load the sidecar restraints_config (yaml.safe_load parses JSON too).
+    _restraints_config = None
+    if restraints_config_path is not None:
+        import yaml
+
+        _restraints_config = yaml.safe_load(Path(restraints_config_path).read_text())
+
     feature_context = AllAtomFeatureContext(
         chains=chains,
         structure_context=merged_context,
@@ -491,6 +499,7 @@ def make_all_atom_feature_context(
         template_context=template_context,
         embedding_context=embedding_context,
         restraint_context=restraint_context,
+        restraints_config=_restraints_config,
     )
     return feature_context
 
@@ -506,6 +515,7 @@ def run_inference(
     msa_server_url: str = "https://api.colabfold.com",
     msa_directory: Path | None = None,
     constraint_path: Path | None = None,
+    restraints_config_path: Path | None = None,
     use_templates_server: bool = False,
     template_hits_path: Path | None = None,
     # Parameters controlling how we do inference
@@ -544,6 +554,7 @@ def run_inference(
         msa_server_url=msa_server_url,
         msa_directory=msa_directory,
         constraint_path=constraint_path,
+        restraints_config_path=restraints_config_path,
         use_templates_server=use_templates_server,
         templates_path=template_hits_path,
         esm_device=torch_device,
@@ -841,9 +852,24 @@ def run_folding_on_context(
         batch_size * num_diffn_samples, num_atoms, 3, device=device
     )
 
+    # RGI: per-structure CombinedRestraints from the feature context's
+    # restraints_config (sidecar YAML/JSON) + structure context. None -> no RGI.
+    combined_restr = None
+    _rc = getattr(feature_context, "restraints_config", None)
+    if _rc:
+        from rgi_utils.chai.adapter import ChaiStructureAdapter
+        from rgi_utils.combined import CombinedRestraints
+
+        combined_restr = CombinedRestraints()
+        combined_restr.setup(
+            ChaiStructureAdapter(feature_context.structure_context, num_atoms),
+            nbatch=num_diffn_samples,
+            config=_rc,
+        )
+
     with _component_moved_to("diffusion_module.pt", device=device) as diffusion_module:
-        for sigma_curr, sigma_next, gamma_curr in tqdm(
-            sigmas_and_gammas, desc="Diffusion steps"
+        for step_idx, (sigma_curr, sigma_next, gamma_curr) in enumerate(
+            tqdm(sigmas_and_gammas, desc="Diffusion steps")
         ):
             # Center coords
             atom_pos = center_random_augmentation(
@@ -870,6 +896,16 @@ def run_folding_on_context(
                 sigma=sigma_hat,
                 ds=num_diffn_samples,
             )
+            # RGI: minimize restraints on the 1st-order x0 prediction before the
+            # position update. Gate on the RAW pre-step schedule level sigma_curr
+            # (NOT the churn-inflated sigma_hat = sigma_curr*(1+gamma_curr)), to match
+            # boltz (sigma_tm), protenix (c_tau_last) and openfold-3 (noise_schedule[tau])
+            # so a single start_sigma means the same noise level across all tools. The
+            # 2nd-order corrector below re-denoises the updated atom_pos, so the
+            # restraint carries through without a second injection (one minimize per
+            # step keeps cross-tool parity).
+            if combined_restr is not None:
+                combined_restr.minimize(denoised_pos, step_idx, float(sigma_curr))
             d_i = (atom_pos_hat - denoised_pos) / sigma_hat
             atom_pos = atom_pos_hat + (sigma_next - sigma_hat) * d_i
 
@@ -883,6 +919,9 @@ def run_folding_on_context(
                 )
                 d_i_prime = (atom_pos - denoised_pos) / sigma_next
                 atom_pos = atom_pos + (sigma_next - sigma_hat) * ((d_i_prime + d_i) / 2)
+
+    if combined_restr is not None:
+        combined_restr.finalize(atom_pos, num_diffn_timesteps)
 
     del static_diffusion_inputs
     torch.cuda.empty_cache()
