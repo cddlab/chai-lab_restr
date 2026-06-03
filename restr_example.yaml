@@ -1,0 +1,47 @@
+# chai-lab RGI example — restraint-guided inference via rgi_utils.
+#
+# Run:
+#   python -m chai_lab.main fold restr_example.fasta <out_dir> \
+#       --restraints-config-path restr_example.yaml --num-diffn-samples 2 \
+#       --no-use-esm-embeddings
+#
+# This file IS the rgi_utils `restraints_config` dict at top level — chai loads it
+# verbatim with yaml.safe_load. Do NOT nest it under a `restraints_config:` key
+# (that is the boltz/protenix style; chai's sidecar is the dict itself).
+#
+# Selection DSL (selection.py): chain / resid N / resid A to B / index / and / or /
+# not / ( ). `resid` is the per-chain 1-based residue ordinal (resets at each chain;
+# ligand atoms each get their own ordinal) — it is NOT 0-based and NOT the author
+# residue number.
+
+verbose: true
+max_iter: 1000
+method: "CG"
+start_sigma: 99999999     # a restraint is active when sigma <= start_sigma
+gpu: true
+
+distance_restraints_config:
+  # COM distance between two protein residue groups, pulled to 25 Å. Qualify with
+  # `chain A` so a bare resid range cannot also sweep in the ligand (chain B), whose
+  # atoms carry their own per-chain ordinals.
+  # Alternatives to `harmonic`: flat-bottomed {target_distance1, target_distance2},
+  # flat-bottomed1 {target_distance1} (penalize below), flat-bottomed2 {target_distance2}.
+  # Each entry may set its own `start_sigma:` (active when sigma <= start_sigma);
+  # otherwise the top-level `start_sigma` applies.
+  - atom_selection1: "chain A and ((resid 5 to 84) or (resid 186 to 224))"
+    atom_selection2: "chain A and (resid 90 to 180)"
+    start_sigma: 99999999            # per-distance override (active when sigma <= start_sigma)
+    harmonic:
+      target_distance: 25.0
+
+conformer_restraints_config:
+  # Keep the ATP ligand at its ideal RDKit reference geometry. chai exposes no
+  # intra-ligand bonds, so the adapter perceives connectivity from the reference
+  # conformer — bond/angle/chiral all apply.
+  start_sigma: 99999999             # ONE value for ALL conformer terms (all ligands);
+  #                                 #   lower it (e.g. 1.0) to enforce ligand geometry
+  #                                 #   only late in denoising. Falls back to top-level.
+  bond: {weight: 1.0}
+  angle: {weight: 1.0}
+  chiral: {weight: 1.0}
+  vdw: {weight: 1.0, mode: intramolecular}   # static, all-backend VdW
