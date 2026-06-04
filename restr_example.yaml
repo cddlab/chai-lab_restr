@@ -44,4 +44,7 @@ conformer_restraints_config:
   bond: {weight: 1.0}
   angle: {weight: 1.0}
   chiral: {weight: 1.0}
+  dihedral: {weight: 1.0}   # cis/trans (E/Z) of acyclic double bonds. NOTE: chai exposes no
+  #                         #   bond orders (heavy-atom-only context), so this finds nothing
+  #                         #   on chai ligands (dihedrals=0); the other four tools detect them.
   vdw: {weight: 1.0, mode: intramolecular}   # static, all-backend VdW
