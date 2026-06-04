@@ -17,7 +17,6 @@
 verbose: true
 max_iter: 1000
 method: "CG"
-start_sigma: 99999999     # a restraint is active when sigma <= start_sigma
 gpu: true
 
 distance_restraints_config:
@@ -26,11 +25,11 @@ distance_restraints_config:
   # atoms carry their own per-chain ordinals.
   # Alternatives to `harmonic`: flat-bottomed {target_distance1, target_distance2},
   # flat-bottomed1 {target_distance1} (penalize below), flat-bottomed2 {target_distance2}.
-  # Each entry may set its own `start_sigma:` (active when sigma <= start_sigma);
-  # otherwise the top-level `start_sigma` applies.
+  # Each entry MAY set its own `start_sigma:` (active when sigma <= start_sigma); it is
+  # optional — omit it for active-at-every-step. There is no top-level/global default.
   - atom_selection1: "chain A and ((resid 5 to 84) or (resid 186 to 224))"
     atom_selection2: "chain A and (resid 90 to 180)"
-    start_sigma: 99999999            # per-distance override (active when sigma <= start_sigma)
+    start_sigma: 99999999            # optional; omitted -> every step (active when sigma <= start_sigma)
     harmonic:
       target_distance: 25.0
 
@@ -38,9 +37,9 @@ conformer_restraints_config:
   # Keep the ATP ligand at its ideal RDKit reference geometry. chai exposes no
   # intra-ligand bonds, so the adapter perceives connectivity from the reference
   # conformer — bond/angle/chiral all apply.
-  start_sigma: 99999999             # ONE value for ALL conformer terms (all ligands);
-  #                                 #   lower it (e.g. 1.0) to enforce ligand geometry
-  #                                 #   only late in denoising. Falls back to top-level.
+  start_sigma: 99999999             # optional; ONE value for ALL conformer terms (all
+  #                                 #   ligands). Lower it (e.g. 1.0) to enforce ligand
+  #                                 #   geometry only late in denoising.
   bond: {weight: 1.0}
   angle: {weight: 1.0}
   chiral: {weight: 1.0}
