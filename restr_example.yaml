@@ -17,7 +17,7 @@
 verbose: true
 max_iter: 1000
 method: "CG"
-gpu: true
+gpu: true            # torch device: true=GPU, false=CPU (backend: numpy/jax to override)
 
 distance_restraints_config:
   # COM distance between two protein residue groups, pulled to 25 Å. Qualify with

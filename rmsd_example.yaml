@@ -18,7 +18,7 @@
 # is a hard error). The selection DSL is chain/resid/index (no atom names), so a
 # residue range selects ALL atoms of those residues.
 verbose: true
-gpu: true
+gpu: true            # torch device: true=GPU, false=CPU (backend: numpy/jax to override)
 max_iter: 200
 method: "CG"
 
