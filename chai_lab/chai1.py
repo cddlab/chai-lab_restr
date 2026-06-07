@@ -950,15 +950,14 @@ def run_folding_on_context(
                 atom_pos = atom_pos + (sigma_next - sigma_hat) * ((d_i_prime + d_i) / 2)
 
     if combined_restr is not None:
-        # Per-step minimize tightens the denoised x0, but the integrator step leaves the
-        # FINAL coords off the conformer target. Polish the output at sigma=0 so the
-        # restraint is realised on the returned coords (conformer terms adjust only
-        # internal geometry + VdW, so the pose is preserved). A few passes: from a
-        # partly-restrained start the conformer optimisation needs more than one max_iter
-        # budget to fully reach the target (one pass left chai at ~0.014 bond RMS vs ~0.004
-        # after three); each pass converges further until the residual is at the ideal.
-        for _ in range(3):
-            combined_restr.minimize(atom_pos, num_diffn_timesteps, 0.0)
+        # chai's final integrator step has sigma_next=0, so atom_pos == the per-step
+        # minimized denoised x0 (no step_scale extrapolation, unlike boltz/esm) -- the
+        # conformer restraint is already realised there. This single sigma=0 pass is the
+        # cross-tool "polish" convention; here it is essentially a no-op once the per-step
+        # minimize (including the un-diluted 2nd-order corrector below) has converged, kept
+        # for parity. The earlier dilution -- the 2nd-order corrector re-denoising WITHOUT a
+        # minimize -- was the real cause of chai's off-target output, now fixed in the loop.
+        combined_restr.minimize(atom_pos, num_diffn_timesteps, 0.0)
         combined_restr.finalize(atom_pos, num_diffn_timesteps)
 
     del static_diffusion_inputs
