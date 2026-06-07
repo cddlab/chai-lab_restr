@@ -860,9 +860,30 @@ def run_folding_on_context(
         from rgi_utils.chai.adapter import ChaiStructureAdapter
         from rgi_utils.combined import CombinedRestraints
 
+        # Ligand SMILES per subchain: chai drops intra-ligand bond ORDERS at every layer
+        # (ConformerData.bonds is connectivity-only), so the adapter otherwise perceives an
+        # all-single mol and the conformer restraint can't UFF-relax aromatic rings to the
+        # ideal target. The source SMILES (Residue.smiles) carries the real orders; the
+        # structure_context ligand atoms are in MolFromSmiles heavy-atom order (chai's
+        # generate() RemoveHs restores it), so the adapter maps SMILES bonds back by index.
+        from chai_lab.data.parsing.structure.entity_type import EntityType
+
+        smiles_by_subchain: dict[str, str] = {}
+        for _ch in feature_context.chains:
+            _ed = _ch.entity_data
+            if _ed.entity_type == EntityType.LIGAND:
+                for _res in _ed.residues:
+                    if getattr(_res, "smiles", None):
+                        smiles_by_subchain[_ed.subchain_id] = _res.smiles
+                        break
+
         combined_restr = CombinedRestraints()
         combined_restr.setup(
-            ChaiStructureAdapter(feature_context.structure_context, num_atoms),
+            ChaiStructureAdapter(
+                feature_context.structure_context,
+                num_atoms,
+                smiles_by_subchain=smiles_by_subchain,
+            ),
             nbatch=num_diffn_samples,
             config=_rc,
         )
@@ -917,10 +938,27 @@ def run_folding_on_context(
                     sigma=sigma_next,
                     ds=num_diffn_samples,
                 )
+                # RGI: minimize the corrector's re-denoised x0 too (gated on the corrector's
+                # sigma_next). Without this the 2nd-order corrector injects a NON-restrained
+                # x0 that dilutes the per-step restraint, leaving the output far from the
+                # conformer target (single-pass polish only reached ~0.014 bond RMS vs the
+                # ~0.004 ideal). The other tools have no 2nd-order corrector, so this keeps
+                # chai's per-step restraint at parity with them.
+                if combined_restr is not None:
+                    combined_restr.minimize(denoised_pos, step_idx, float(sigma_next))
                 d_i_prime = (atom_pos - denoised_pos) / sigma_next
                 atom_pos = atom_pos + (sigma_next - sigma_hat) * ((d_i_prime + d_i) / 2)
 
     if combined_restr is not None:
+        # Per-step minimize tightens the denoised x0, but the integrator step leaves the
+        # FINAL coords off the conformer target. Polish the output at sigma=0 so the
+        # restraint is realised on the returned coords (conformer terms adjust only
+        # internal geometry + VdW, so the pose is preserved). A few passes: from a
+        # partly-restrained start the conformer optimisation needs more than one max_iter
+        # budget to fully reach the target (one pass left chai at ~0.014 bond RMS vs ~0.004
+        # after three); each pass converges further until the residual is at the ideal.
+        for _ in range(3):
+            combined_restr.minimize(atom_pos, num_diffn_timesteps, 0.0)
         combined_restr.finalize(atom_pos, num_diffn_timesteps)
 
     del static_diffusion_inputs
