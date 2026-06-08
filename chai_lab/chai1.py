@@ -950,14 +950,13 @@ def run_folding_on_context(
                 atom_pos = atom_pos + (sigma_next - sigma_hat) * ((d_i_prime + d_i) / 2)
 
     if combined_restr is not None:
-        # chai's final integrator step has sigma_next=0, so atom_pos == the per-step
-        # minimized denoised x0 (no step_scale extrapolation, unlike boltz/esm) -- the
-        # conformer restraint is already realised there. This single sigma=0 pass is the
-        # cross-tool "polish" convention; here it is essentially a no-op once the per-step
-        # minimize (including the un-diluted 2nd-order corrector below) has converged, kept
-        # for parity. The earlier dilution -- the 2nd-order corrector re-denoising WITHOUT a
-        # minimize -- was the real cause of chai's off-target output, now fixed in the loop.
-        combined_restr.minimize(atom_pos, num_diffn_timesteps, 0.0)
+        # No polish needed: chai's final integrator step has sigma_next=0, so atom_pos is
+        # exactly the per-step minimized denoised x0 (the last in-loop minimize at step_idx
+        # IS the realization -- there is no step_scale extrapolation to undo, unlike boltz/
+        # esm whose last step extrapolates and therefore do need a sigma=0 polish). The
+        # earlier off-target output came from the 2nd-order Heun corrector re-denoising
+        # WITHOUT a minimize (now fixed in the loop), not from a missing polish. finalize
+        # only logs the residual energy.
         combined_restr.finalize(atom_pos, num_diffn_timesteps)
 
     del static_diffusion_inputs
