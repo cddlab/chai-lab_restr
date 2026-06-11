@@ -29,34 +29,57 @@ distance_restraints_config:
   - atom_selection1: "chain A and ((resid 5 to 84) or (resid 186 to 224))"
     atom_selection2: "chain A and (resid 90 to 180)"
     start_sigma: 99999999            # optional; omitted -> every step (active when sigma <= start_sigma)
+    # stop_sigma: -1                 # optional lower bound (default -1 = off): release below this sigma
     harmonic:
       target_distance: 25.0
 
 conformer_restraints_config:
-  # Keep the ATP ligand at its ideal RDKit reference geometry. chai exposes no
-  # intra-ligand bonds, so the adapter perceives connectivity from the reference
-  # conformer — bond/angle/chiral all apply.
+  # Keep the GLN ligand at its ideal RDKit geometry. chai drops intra-ligand bond
+  # orders at every layer, so the adapter rebuilds the mol from the source SMILES
+  # (Kekulized -> correct valence + aromaticity + stereo); bond/angle/chiral all apply.
   start_sigma: 99999999             # optional; ONE value for ALL conformer terms (all
   #                                 #   ligands). Lower it (e.g. 1.0) to enforce ligand
   #                                 #   geometry only late in denoising.
+  # stop_sigma: -1                  # optional lower bound for ALL conformer terms (default -1 = off)
   bond: {weight: 1.0}
   angle: {weight: 1.0}
-  chiral: {weight: 1.0}
-  dihedral: {weight: 1.0}   # cis/trans (E/Z) of acyclic double bonds. NOTE: chai exposes no
-  #                         #   bond orders (heavy-atom-only context), so this finds nothing
-  #                         #   on chai ligands (dihedrals=0); the other four tools detect them.
+  chiral: {weight: 1.0}     # GLN has one stereocentre (CA); the SMILES-derived ETKDG target
+  #                         #   fixes its enantiomer (chai's own ref conformer can be wrong).
+  # dihedral = cis/trans (E/Z) of an acyclic non-aromatic double bond. GLN has none
+  # (terminal C=O) so dihedrals=0 here; chai DOES detect them for ligands that have one
+  # (the SMILES carries Kekulized bond orders), like the other six tools.
+  dihedral: {weight: 1.0}
   vdw: {weight: 1.0, mode: intramolecular}   # static, all-backend VdW
 
 # rmsd_restraints_config — Kabsch-superposed RMSD of a moving group toward target_rmsd vs a
 #   reference PDB. REQUIRES a reference: fold restr_example.fasta once WITHOUT this sidecar,
 #   then convert to rmsd_ref.pdb (gemmi make_pdb_string) before running. Atoms pair by IDENTITY
-#   (chain, resid, atom-name), so the ref atom order need not match. atom_selection is OPTIONAL:
-#   omitted here -> fit + measure RMSD over the WHOLE structure, best-effort (atoms missing from
-#   the ref are skipped); give atom_selection_ref/target (or _fit/_calc) to restrain a region.
-#   (top-level dict, so the key sits at column 0 like the configs above)
+#   (chain, resid, atom-name), so the ref atom order need not match. Every key is shown below;
+#   uncomment the optional (commented) ones as needed. (top-level dict, column 0.)
 rmsd_restraints_config:
-  - ref_pdb: rmsd_ref.pdb
-    target_rmsd: 0.0            # whole structure (no atom_selection); for a region add e.g.
-    # atom_selection_ref: "chain A and (resid 90 to 180)"
-    # atom_selection_target: "chain A and (resid 90 to 180)"
-    # start_sigma: 99999999     # optional (omit -> every step); weight optional (default 1)
+  - ref_pdb: rmsd_ref.pdb        # REQUIRED: path to the reference PDB
+    target_rmsd: 0.0             # REQUIRED: target Kabsch-RMSD in A (0 = match the ref)
+    # weight: 1.0                # optional (default 1.0)
+    # start_sigma: 99999999      # optional (omit -> active every step; e.g. 1.0 = late only)
+    # stop_sigma: 1.0            # optional LOWER bound (default -1 = off): RELEASE the restraint
+    #                            #   below this sigma (window stop<=sigma<=start) so the model
+    #                            #   re-idealises geometry it held distorted — fixes a broken
+    #                            #   peptide bond at a restrained-residue / free unmodeled-tail
+    #                            #   boundary; 1.0 validated for this whole-structure target_rmsd=0.
+    # --- residue correspondence (optional) ---
+    # pairing: identity          # "identity" (default: pair by chain/resid/atom-name) OR
+    #                            #   "align" = sequence-align polymer chains (BLOSUM62) so a
+    #                            #   HOMOLOG ref (substitutions/indels/renumbering) maps on.
+    #                            #   NOTE align pairs backbone + ANY shared side-chain atom
+    #                            #   names by default, pinning a substituted side chain; add
+    #                            #   a `name CA` atom_selection to superpose backbone only.
+    # best_effort: true          # default true (skip atoms unmatched in the ref); set
+    #                            #   false for STRICT pairing (raise on any unmatched atom)
+    # --- atom selection (optional; omit -> WHOLE structure, best-effort) ---
+    # atom_selection_ref: "chain A and (resid 90 to 180)"      # shorthand, ref side:
+    # atom_selection_target: "chain A and (resid 90 to 180)"   #   sets BOTH fit AND calc
+    # --- OR split superposition (fit) vs measured (calc) atoms ---
+    # atom_selection_ref_fit: "chain A and (resid 5 to 220)"       # atoms superposed
+    # atom_selection_target_fit: "chain A and (resid 5 to 220)"
+    # atom_selection_ref_calc: "chain A and (resid 90 to 180)"     # atoms measured
+    # atom_selection_target_calc: "chain A and (resid 90 to 180)"

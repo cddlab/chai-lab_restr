@@ -18,7 +18,9 @@ export CHAI_DOWNLOADS_DIR="${CHAI_DOWNLOADS_DIR:-$HOME/.cache/chai}"
 rm -rf out_restr_example
 # restr_example.yaml IS the restraints_config dict at top level (chai sidecar style).
 # RGI: rgi_utils minimizes distance + conformer restraints on the x0 prediction each step.
-# (fasta & out_dir are POSITIONAL; chai exposes no bond orders, so dihedrals=0 here.)
+# (fasta & out_dir are POSITIONAL; the GLN ligand is given as SMILES, which the adapter
+# rebuilds Kekulized for correct valence/aromaticity/stereo — dihedrals=0 only because GLN
+# has no acyclic non-aromatic double bond, not because chai lacks bond orders.)
 python -m chai_lab.main fold \
     restr_example.fasta \
     out_restr_example \
