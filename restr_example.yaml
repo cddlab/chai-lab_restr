@@ -19,7 +19,7 @@ max_iter: 1000
 method: "CG"
 gpu: true            # torch device: true=GPU, false=CPU
 distance_restraints_config:
-  # COM distance between two protein residue groups, pulled to 25 Å. Qualify with
+  # centroid distance between two protein residue groups, pulled to 25 Å. Qualify with
   # `chain A` so a bare resid range cannot also sweep in the ligand (chain B), whose
   # atoms carry their own per-chain ordinals.
   # Alternatives to `harmonic`: flat-bottomed {target_distance1, target_distance2},
@@ -36,9 +36,9 @@ distance_restraints_config:
     harmonic:
       target_distance: 25.0
 
-# angle_restraints_config — angle (DEGREES) of the COMs of THREE groups, vertex = group 2
-#   (COM1-COM2-COM3). Same restraint types + `move` as the distance restraint; CG-solved,
-#   the COM-only energy moves each free group rigidly. Uncomment (top-level dict, column 0):
+# angle_restraints_config — angle (DEGREES) of the centroids of THREE groups, vertex = group 2
+#   (centroid1-centroid2-centroid3). Same restraint types + `move` as the distance restraint; CG-solved,
+#   the centroid-only energy moves each free group rigidly. Uncomment (top-level dict, column 0):
 # angle_restraints_config:
 #   - atom_selection1: "chain A and (resid 5 to 84)"
 #     atom_selection2: "chain A and (resid 90 to 180)"      # vertex (group 2)
@@ -49,8 +49,8 @@ distance_restraints_config:
 #     #                #   'all' (every group) | an index (e.g. 1) | a list [1, 3]
 #     # weight: 1.0    # optional; start_sigma / stop_sigma optional (as distance)
 
-# dihedral_restraints_config — dihedral (DEGREES) of FOUR group COMs, axis = group2-group3
-#   (COM1-COM2-COM3-COM4). `harmonic` is periodicity-safe (wrapped to +-180); flat-bottomed
+# dihedral_restraints_config — dihedral (DEGREES) of FOUR group centroids, axis = group2-group3
+#   (centroid1-centroid2-centroid3-centroid4). `harmonic` is periodicity-safe (wrapped to +-180); flat-bottomed
 #   windows cannot straddle +-180. Uncomment:
 # dihedral_restraints_config:
 #   - atom_selection1: "chain A and (resid 5 to 50)"
