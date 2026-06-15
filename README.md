@@ -1,3 +1,8 @@
+see [rgi_utils](https://github.com/cddlab/rgi_utils) for more information.
+
+<details>
+<summary>Original README</summary>
+
 # Chai-1
 
 Chai-1 is a multi-modal foundation model for molecular structure prediction that performs at the state-of-the-art across a variety of benchmarks. Chai-1 enables unified prediction of proteins, small molecules, DNA, RNA, glycosylations, and more.
@@ -191,3 +196,5 @@ Chai-1 is released under an Apache 2.0 License (both code and model weights), wh
 See [LICENSE](LICENSE).
 
 To discuss partnership and access to new internal capabilities, reach us [via email](mailto:partnerships@chaidiscovery.com).
+
+</details>
