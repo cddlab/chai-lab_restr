@@ -877,12 +877,27 @@ def run_folding_on_context(
                         smiles_by_subchain[_ed.subchain_id] = _res.smiles
                         break
 
+        # RGI per-ligand conformer_restraints opt-in. chai's FASTA can't carry a per-ligand
+        # flag (the parser rejects header fields other than name=), so it lives in the
+        # sidecar as a {chain_id: bool} map, where chain_id is the subchain id used in
+        # atom_selection (= smiles_by_subchain's key). Strip it before setup: config.py
+        # rejects unknown top-level keys (keep that typo guard for the real sections).
+        _conf_restr_raw = _rc.get("conformer_restraints", {}) or {}
+        if not isinstance(_conf_restr_raw, dict):
+            raise ValueError(
+                "restraints_config: 'conformer_restraints' must be a {chain_id: bool} map "
+                "(chai has no per-ligand FASTA flag), e.g. {B: true}."
+            )
+        conf_restraints_by_subchain = {str(k): bool(v) for k, v in _conf_restr_raw.items()}
+        _rc = {k: v for k, v in _rc.items() if k != "conformer_restraints"}
+
         combined_restr = CombinedRestraints()
         combined_restr.setup(
             ChaiStructureAdapter(
                 feature_context.structure_context,
                 num_atoms,
                 smiles_by_subchain=smiles_by_subchain,
+                conf_restraints_by_subchain=conf_restraints_by_subchain,
             ),
             nbatch=num_diffn_samples,
             config=_rc,
