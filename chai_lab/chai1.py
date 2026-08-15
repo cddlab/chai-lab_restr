@@ -371,7 +371,9 @@ def make_all_atom_feature_context(
 
     # Load structure context
     chains = load_chains_from_raw(
-        fasta_inputs, entity_name_as_subchain=entity_name_as_subchain
+        fasta_inputs,
+        entity_name_as_subchain=entity_name_as_subchain,
+        raise_on_error=True,
     )
     del fasta_inputs  # Do not reference inputs after creating chains from them
 

@@ -15,6 +15,21 @@ def test_ref_conformer_from_smiles():
     assert len(set(conformer.atom_names)) == conformer.num_atoms
 
 
+def test_ref_conformer_falls_back_from_random_coordinates():
+    """A large fused glycoside should survive random-coordinate embed failure."""
+    smiles = (
+        "CC(=O)O[C@@H]1[C@@H](O)[C@H](O[C@H]2[C@H](OC(=O)[C@H]3CC[C@@H]4"
+        "[C@H](C3)O[C@@]3(C[C@H](OC(=O)/C=C/c5ccccc5)[C@H](C)CO3)[C@]43CO3)"
+        "O[C@H](C)[C@@H](O)[C@@H]2OC(C)=O)O[C@H](C)[C@H]1O"
+    )
+    rcg = RefConformerGenerator()
+
+    conformer = rcg.generate(smiles)
+
+    assert conformer.num_atoms == 57
+    assert len(set(conformer.atom_names)) == conformer.num_atoms
+
+
 def test_ref_conformer_glycan_ccd():
     """Ref conformer from CCD code for a sugar ring."""
     rcg = RefConformerGenerator()

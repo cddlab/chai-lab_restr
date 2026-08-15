@@ -49,6 +49,23 @@ def test_malformed_smiles(tokenizer: AllAtomResidueTokenizer):
         )
 
 
+def test_malformed_smiles_raises_in_inference_mode(
+    tokenizer: AllAtomResidueTokenizer,
+):
+    inputs = [
+        Input("RKDESES", entity_type=EntityType.PROTEIN.value, entity_name="foo"),
+        Input("Zn", entity_type=EntityType.LIGAND.value, entity_name="bar"),
+    ]
+
+    with pytest.raises(ValueError, match="Failed to tokenize input entity 'bar'"):
+        load_chains_from_raw(
+            inputs,
+            identifier="test",
+            tokenizer=tokenizer,
+            raise_on_error=True,
+        )
+
+
 def test_ions_parsing(tokenizer: AllAtomResidueTokenizer):
     """Ions as SMILES strings should carry the correct charge."""
     inputs = [Input("[Mg+2]", entity_type=EntityType.LIGAND.value, entity_name="foo")]

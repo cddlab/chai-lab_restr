@@ -182,9 +182,14 @@ def load_chains_from_raw(
     identifier: str = "test",
     entity_name_as_subchain: bool = False,
     tokenizer: AllAtomResidueTokenizer | None = None,
+    raise_on_error: bool = False,
 ) -> list[Chain]:
     """
-    Loads and tokenizes each input chain; skips over inputs that fail to tokenize.
+    Loads and tokenizes each input chain.
+
+    Inputs that fail to tokenize are skipped by default for backward compatibility.
+    Set ``raise_on_error`` for inference, where silently dropping a requested chain
+    would produce an incomplete structure that appears successful.
     """
 
     if tokenizer is None:
@@ -211,12 +216,20 @@ def load_chains_from_raw(
                 sym_id=sym_id,
             )
             if tok is None:
-                logger.exception(f"Failed to tokenize input {entity_data=}  {sym_id=}")
+                logger.error(f"Failed to tokenize input {entity_data=}  {sym_id=}")
         except Exception as e:
             logger.exception(
                 f"Failed to tokenize input {entity_data=}  {sym_id=}", exc_info=e
             )
+            if raise_on_error:
+                raise ValueError(
+                    f"Failed to tokenize input entity {entity_data.entity_name!r}"
+                ) from e
             tok = None
+        if tok is None and raise_on_error:
+            raise ValueError(
+                f"Failed to tokenize input entity {entity_data.entity_name!r}"
+            )
         structure_contexts.append(tok)
 
     # Join the untokenized entity data with the tokenized chain data, removing

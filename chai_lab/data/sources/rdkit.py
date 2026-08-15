@@ -161,7 +161,30 @@ class RefConformerGenerator:
         params.useRandomCoords = True
         params.numThreads = -1  # 0 (or -1) lets RDKit use all available cores
 
-        rdDistGeom.EmbedMultipleConfs(mol_with_hs, numConfs=1, params=params)
+        conformer_ids = list(
+            rdDistGeom.EmbedMultipleConfs(mol_with_hs, numConfs=1, params=params)
+        )
+        if not conformer_ids:
+            # Random-coordinate initialization can fail for large fused and
+            # macrocyclic ligands. Retry with the standard distance-geometry
+            # initialization on a fresh molecule before reporting the input as
+            # unsupported. Reusing a failed embedding can retain unusable state.
+            mol_with_hs = Chem.AddHs(mol)
+            retry_params: Any = rdDistGeom.ETKDGv3()
+            retry_params.useSmallRingTorsions = True
+            retry_params.useMacrocycleTorsions = True
+            retry_params.randomSeed = 123
+            retry_params.enforceChirality = True
+            retry_params.maxIterations = 1000
+            retry_params.useRandomCoords = False
+            retry_params.numThreads = -1
+            conformer_ids = list(
+                rdDistGeom.EmbedMultipleConfs(
+                    mol_with_hs, numConfs=1, params=retry_params
+                )
+            )
+        if not conformer_ids:
+            raise ValueError(f"Failed to generate conformer for SMILES: {smiles}")
         rdmolops.RemoveHs(mol_with_hs)
 
         element_counter: dict = defaultdict(int)
