@@ -37,7 +37,7 @@ class AllAtomFeatureContext:
     template_context: TemplateContext
     embedding_context: EmbeddingContext | None
     restraint_context: RestraintContext
-    # restraint-guided inference: rgi_utils restraints_config dict (sidecar
+    # restraint-guided inference: rgi_toolkit restraints_config dict (sidecar
     # YAML/JSON). Metadata, not padded/batched (lives alongside chains).
     restraints_config: dict | None = None
 

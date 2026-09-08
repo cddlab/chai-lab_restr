@@ -859,8 +859,8 @@ def run_folding_on_context(
     combined_restr = None
     _rc = getattr(feature_context, "restraints_config", None)
     if _rc:
-        from rgi_utils.chai.adapter import ChaiStructureAdapter
-        from rgi_utils.combined import CombinedRestraints
+        from rgi_toolkit.chai.adapter import ChaiStructureAdapter
+        from rgi_toolkit.combined import CombinedRestraints
 
         # Ligand SMILES per subchain: chai drops intra-ligand bond ORDERS at every layer
         # (ConformerData.bonds is connectivity-only), so the adapter otherwise perceives an
