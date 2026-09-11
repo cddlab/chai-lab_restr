@@ -490,8 +490,12 @@ def make_all_atom_feature_context(
     _restraints_config = None
     if restraints_config_path is not None:
         import yaml
+        from rgi_toolkit.config import resolve_restraints_config
 
-        _restraints_config = yaml.safe_load(Path(restraints_config_path).read_text())
+        _restraints_config = resolve_restraints_config(
+            yaml.safe_load(Path(restraints_config_path).read_text()),
+            base_dir=Path(restraints_config_path).parent,
+        )
 
     feature_context = AllAtomFeatureContext(
         chains=chains,
